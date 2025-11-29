@@ -23,3 +23,11 @@ pip install -r requirements.txt
 ```bash
 ollama run llama3.1:8b
 ```
+
+**How to Run**
+
+- Indexing - run one time for indexing and vector store creation:
+
+```bash
+python index_data.py
+```
