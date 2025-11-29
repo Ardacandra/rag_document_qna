@@ -15,3 +15,11 @@ conda activate rag_document_qna
 ```bash
 pip install -r requirements.txt
 ```
+
+- Install Ollama for your operating system for local LLM setup
+
+- Download a model:
+
+```bash
+ollama run llama3.1:8b
+```
