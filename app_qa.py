@@ -51,7 +51,11 @@ def initialize_rag_pipeline():
     
     # Set LlamaIndex Global Settings (LLM and Embeddings)
     # 1. Local LLM (Ollama)
-    Settings.llm = Ollama(model=LLM_MODEL, base_url=cfg("OLLAMA_BASE_URL", "http://localhost:11434"))
+    Settings.llm = Ollama(
+        model=LLM_MODEL, 
+        base_url=cfg("OLLAMA_BASE_URL", "http://localhost:11434"),
+        request_timeout=180,
+    )
 
     # 2. Local Embedding Model (force local if requested)
     if EMBED_MODEL_TYPE == "local":

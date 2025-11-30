@@ -1,5 +1,6 @@
 # Configuration for the RAG pipeline
-LLM_MODEL: "llama3.1:8b"
+# LLM_MODEL: "llama3.1:8b"
+LLM_MODEL: "llama3.2:3B"
 OLLAMA_BASE_URL: "http://localhost:11434"
 
 # Embedding model (Hugging Face local model)
