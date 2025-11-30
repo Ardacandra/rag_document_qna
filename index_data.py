@@ -12,6 +12,7 @@ import yaml
 
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core import Document
 from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -55,17 +56,101 @@ def create_index():
         return
 
     # 1. LOAD DOCUMENTS
-    try:
-        documents = SimpleDirectoryReader(input_dir=str(data_path)).load_data()
-    except Exception as e:
-        print(f"Error loading documents from {data_path}: {e}")
-        return
+    # We'll construct Document objects ourselves so we can robustly extract text from PDFs
+    docs = []
 
-    if not documents:
+    # PDF text extractor: prefer pdfplumber, fall back to PyMuPDF (fitz)
+    try:
+        import pdfplumber
+    except Exception:
+        pdfplumber = None
+
+    try:
+        import fitz  # PyMuPDF
+    except Exception:
+        fitz = None
+
+    # Optional DOCX reader
+    try:
+        import docx
+    except Exception:
+        docx = None
+
+    def extract_text_from_pdf(path: Path) -> str:
+        if pdfplumber is not None:
+            try:
+                with pdfplumber.open(path) as pdf:
+                    pages = [p.extract_text() or "" for p in pdf.pages]
+                    return "\n".join(pages)
+            except Exception:
+                # fall through to other methods
+                pass
+        if fitz is not None:
+            try:
+                doc = fitz.open(path)
+                texts = []
+                for page in doc:
+                    texts.append(page.get_text())
+                return "\n".join(texts)
+            except Exception:
+                pass
+        # Last resort: return empty string
+        return ""
+
+    for path in sorted(data_path.glob("**/*")):
+        if path.is_dir():
+            continue
+        suffix = path.suffix.lower()
+        text = ""
+        if suffix == ".pdf":
+            text = extract_text_from_pdf(path)
+            if not text.strip():
+                print(f"Warning: extracted empty text from PDF {path}; it may be scanned/encrypted.")
+        elif suffix in {".txt", ".md"}:
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception as e:
+                print(f"Failed reading {path}: {e}")
+                continue
+        elif suffix == ".docx" and docx is not None:
+            try:
+                doc = docx.Document(str(path))
+                paragraphs = [p.text for p in doc.paragraphs]
+                text = "\n".join(paragraphs)
+            except Exception as e:
+                print(f"Failed reading DOCX {path}: {e}")
+                continue
+        else:
+            # try reading as text fallback
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                print(f"Skipping unsupported binary file: {path}")
+                continue
+
+        if not text.strip():
+            continue
+
+        # Build a Document object if available, otherwise use a simple dict
+        if Document is not None:
+            try:
+                doc_obj = Document(text=text, doc_id=str(path), metadata={"file_name": path.name})
+            except TypeError:
+                # older/newer signatures may vary
+                try:
+                    doc_obj = Document(text=text)
+                except Exception:
+                    doc_obj = {"text": text, "doc_id": str(path)}
+        else:
+            doc_obj = {"text": text, "doc_id": str(path)}
+
+        docs.append(doc_obj)
+
+    if not docs:
         print(f"No documents found under {data_path}. Nothing to index.")
         return
 
-    print(f"Loaded {len(documents)} documents.")
+    print(f"Loaded {len(docs)} documents.")
 
     # 2. CONFIGURE COMPONENTS
     print(f"Using embedding model: {EMBED_MODEL} (type={cfg('EMBED_MODEL_TYPE', 'local')})")
@@ -104,7 +189,7 @@ def create_index():
     # 4. CREATE AND PERSIST INDEX
     try:
         index = VectorStoreIndex.from_documents(
-            documents,
+            docs,
             storage_context=storage_context,
             transformations=[node_parser, embed_model],
         )
