@@ -15,3 +15,4 @@ CHROMA_PATH: "chroma_db"
 COLLECTION_NAME: "advanced_rag_collection"
 CHUNK_SIZE: 512
 CHUNK_OVERLAP: 20
+EMBED_MODEL_TYPE: "local"  # set to 'local' to prefer local HuggingFace embeddings

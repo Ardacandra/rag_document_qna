@@ -12,6 +12,7 @@ import yaml
 
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
@@ -67,8 +68,14 @@ def create_index():
     print(f"Loaded {len(documents)} documents.")
 
     # 2. CONFIGURE COMPONENTS
-    print(f"Using embedding model: {EMBED_MODEL}")
+    print(f"Using embedding model: {EMBED_MODEL} (type={cfg('EMBED_MODEL_TYPE', 'local')})")
     embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
+    # Force LlamaIndex to use the local embedding model instead of any remote provider
+    try:
+        Settings.embed_model = embed_model
+    except Exception:
+        # If Settings can't be set for any reason, continue — we still pass the embedder explicitly
+        pass
     node_parser = SentenceSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
 
     # 3. CHROMADB SETUP
