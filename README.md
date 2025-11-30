@@ -31,3 +31,9 @@ ollama run llama3.1:8b
 ```bash
 python index_data.py
 ```
+
+- Querying
+
+```bash
+python app_qa.py
+```
